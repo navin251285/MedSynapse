@@ -373,6 +373,50 @@ flowchart TB
 
 Presentation assets for this department map are available in [docs/diagrams/department-agent-map.svg](docs/diagrams/department-agent-map.svg) and [docs/diagrams/department-agent-map.png](docs/diagrams/department-agent-map.png).
 
+## Department Textual Flows
+
+The department map is easier to follow when each department is described as a short operational sequence.
+
+### Front Desk and Intake Department Flow
+
+1. The patient arrives and a Registration Agent creates the visit context.
+2. A Session Context Sub-Agent assigns and maintains the Patient Session ID.
+3. The History Fetch Agent retrieves prior consultations, lab results, and imaging references.
+4. The History Normalization Sub-Agent converts historical records into a consistent format.
+5. The normalized intake package is handed to the Pre-Consultation Coordinator through A2A.
+
+### Pre-Consultation and Scheduling Department Flow
+
+1. The Pre-Consultation Coordinator receives the intake and historical context.
+2. It decides whether the patient can move directly to consultation or requires diagnostics first.
+3. The Appointment API Sub-Agent coordinates scheduling, slot reservation, and availability checks.
+4. The coordinator dispatches work to lab and radiology in parallel where needed.
+5. The department keeps the patient session active while downstream agents continue processing.
+
+### Lab and Pathology Department Flow
+
+1. The Lab Coordinator receives the requested tests for the active patient session.
+2. Blood Test and Biochemistry Sub-Agents execute their respective panels in parallel.
+3. Results are collected from the lab systems and mapped back to the same patient session.
+4. The Lab Coordinator validates and aggregates findings into a clinician-friendly summary.
+5. The summarized lab output is pushed to the Doctor Dashboard Agent.
+
+### Radiology Department Flow
+
+1. The MRI Agent receives the imaging request and begins scan orchestration.
+2. The MRI Acquisition Sub-Agent tracks execution status and scan readiness.
+3. The MRI Comparison Agent receives the new scan context and requests historical comparison through MCP.
+4. The Imaging Summary Sub-Agent structures both current and comparative findings.
+5. The Imaging Coordinator publishes a radiology summary to the Doctor Dashboard Agent.
+
+### Doctor and Decision Support Department Flow
+
+1. The Doctor Dashboard Agent receives intake, history, scheduling, lab, and imaging summaries.
+2. It assembles a single patient view so the doctor does not need to manually reconcile systems.
+3. The doctor reviews the complete case with both current and historical context in one place.
+4. The Treatment Recommendation Agent uses that structured package to support the next clinical decision.
+5. The final output becomes a prescription, admission plan, follow-up instruction, or another care action.
+
 ## A2A Communication Fabric
 
 The next view isolates the A2A interaction model. Instead of emphasizing patient flow, it emphasizes how agents exchange context, status, and structured findings across the system without collapsing responsibilities into a single central worker.
