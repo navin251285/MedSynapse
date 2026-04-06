@@ -50,6 +50,75 @@ Instead of receiving fragmented updates, the doctor sees a unified dashboard tha
 
 Finally, a Treatment Recommendation Agent synthesizes structured findings and supports the physician with a recommendation layer that is context-aware, traceable, and grounded in the complete patient session.
 
+## Visual High-Level Design
+
+The diagram below shows MedSynapse as a layered hospital workflow system. It highlights how patient intake, orchestration, diagnostics, and doctor-facing decision support are connected through A2A coordination, while MCP is reserved for deeper comparison and compute-intensive reasoning.
+
+```mermaid
+flowchart TB
+    %% Patient entry
+    P[Patient]
+
+    subgraph L1[Experience and Intake Layer]
+        RA[Registration Agent]
+        HFA[History Fetch Agent]
+    end
+
+    subgraph L2[Coordination Layer]
+        PCC[Pre-Consultation Coordinator]
+        AA[Appointment API]
+    end
+
+    subgraph L3[Diagnostic Execution Layer]
+        LA[Lab Agents]
+        LC[Lab Coordinator]
+        MA[MRI Agent]
+        IC[Imaging Coordinator]
+    end
+
+    subgraph L4[Analytical Intelligence Layer]
+        MCA[MRI Comparison Agent]
+        MCP[MCP]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    subgraph L5[Clinical Decision Layer]
+        DD[Doctor Dashboard]
+    end
+
+    P --> RA
+    RA --> HFA
+    RA --> PCC
+    PCC --> AA
+    PCC --> LA
+    PCC --> MA
+    HFA -. A2A patient context .-> PCC
+    LA --> LC
+    MA --> IC
+    MA --> MCA
+    MCA --> MCP
+    MCA -. A2A comparison insights .-> IC
+    HFA --> DD
+    AA --> DD
+    LC --> DD
+    IC --> DD
+    DD --> TRA
+
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef coord fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef intel fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
+    classDef output fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef patient fill:#f3f4f6,stroke:#4b5563,stroke-width:1.5px,color:#111827;
+
+    class P patient;
+    class RA,HFA intake;
+    class PCC,AA coord;
+    class LA,LC,MA,IC diag;
+    class MCA,MCP,TRA intel;
+    class DD output;
+```
+
 ## High-Level Flow
 
 ```mermaid
