@@ -1,0 +1,71 @@
+flowchart TB
+    P[Patient and Hospital Staff]
+    UI[Hospital Portal and Doctor Dashboard UI]
+    APIGW[Hospital Access Layer]
+    LB1[Load Balancer: Intake and Coordination]
+    LB2[Load Balancer: Diagnostics]
+    A2A[A2A Communication Fabric]
+    MCP[MCP Compute Services]
+
+    subgraph Intake[Patient Intake Domain]
+        RA[Registration Agent Pool]
+        HFA[History Fetch Agent Pool]
+        PCC[Pre-Consultation Coordinator Pool]
+    end
+
+    subgraph Diagnostics[Diagnostic Domain]
+        LAB[Lab Agent Pool]
+        IMG[Imaging Agent Pool]
+        COMP[Comparison Agent Pool]
+    end
+
+    subgraph Clinical[Clinical Decision Domain]
+        DD[Doctor Dashboard Agent]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    subgraph Enterprise[Hospital Systems]
+        APPT[Appointment API]
+        EHR[EHR and Historical Records]
+        LIS[Lab Systems]
+        RIS[Radiology Systems]
+    end
+
+    P --> UI
+    UI --> APIGW
+    APIGW --> LB1
+    APIGW --> DD
+    LB1 --> RA
+    LB1 --> HFA
+    LB1 --> PCC
+    RA -. A2A session context .-> A2A
+    HFA -. A2A patient history .-> A2A
+    PCC -. A2A work routing .-> A2A
+    A2A --> LB2
+    LB2 --> LAB
+    LB2 --> IMG
+    LB2 --> COMP
+    COMP --> MCP
+    RA --> EHR
+    HFA --> EHR
+    PCC --> APPT
+    LAB --> LIS
+    IMG --> RIS
+    LAB --> DD
+    IMG --> DD
+    COMP --> DD
+    DD --> TRA
+
+    classDef patient fill:#f3f4f6,stroke:#4b5563,stroke-width:1.5px,color:#111827;
+    classDef gateway fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef clinical fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef intel fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
+
+    class P patient;
+    class UI,APIGW,LB1,LB2,A2A gateway;
+    class RA,HFA,PCC intake;
+    class LAB,IMG,COMP diag;
+    class DD,TRA clinical;
+    class MCP,APPT,EHR,LIS,RIS intel;

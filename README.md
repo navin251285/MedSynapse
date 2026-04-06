@@ -75,76 +75,211 @@ Instead of waiting for one department to finish before the next begins, MedSynap
 6. Coordinators summarize departmental outputs into the Doctor Dashboard.
 7. A Treatment Recommendation Agent supports the final care decision.
 
-## Visual High-Level Design
+## High-Level Technical Architecture
 
-The diagram below shows MedSynapse as a layered hospital workflow system. It highlights how patient intake, orchestration, diagnostics, and doctor-facing decision support are connected through A2A coordination, while MCP is reserved for deeper comparison and compute-intensive reasoning.
+At a high level, MedSynapse behaves like an orchestration fabric sitting above hospital departments. The patient does not interact with every service directly. Instead, requests enter through the hospital front door, are distributed to scalable agent pools through load balancers, and move across departments through A2A handoffs. MCP is called only for specialized analytical work such as historical comparison or multi-modal reasoning.
+
+This is the system view an architect, CTO, or hospital platform team would use to understand where scale, routing, and compute boundaries exist.
 
 ```mermaid
 flowchart TB
-    %% Patient entry
-    P[Patient]
+    P[Patient and Hospital Staff]
+    UI[Hospital Portal and Doctor Dashboard UI]
+    APIGW[Hospital Access Layer]
+    LB1[Load Balancer: Intake and Coordination]
+    LB2[Load Balancer: Diagnostics]
+    A2A[A2A Communication Fabric]
+    MCP[MCP Compute Services]
 
-    subgraph L1[Experience and Intake Layer]
-        RA[Registration Agent]
-        HFA[History Fetch Agent]
+    subgraph Intake[Patient Intake Domain]
+        RA[Registration Agent Pool]
+        HFA[History Fetch Agent Pool]
+        PCC[Pre-Consultation Coordinator Pool]
     end
 
-    subgraph L2[Coordination Layer]
-        PCC[Pre-Consultation Coordinator]
-        AA[Appointment API]
+    subgraph Diagnostics[Diagnostic Domain]
+        LAB[Lab Agent Pool]
+        IMG[Imaging Agent Pool]
+        COMP[Comparison Agent Pool]
     end
 
-    subgraph L3[Diagnostic Execution Layer]
-        LA[Lab Agents]
-        LC[Lab Coordinator]
-        MA[MRI Agent]
-        IC[Imaging Coordinator]
-    end
-
-    subgraph L4[Analytical Intelligence Layer]
-        MCA[MRI Comparison Agent]
-        MCP[MCP]
+    subgraph Clinical[Clinical Decision Domain]
+        DD[Doctor Dashboard Agent]
         TRA[Treatment Recommendation Agent]
     end
 
-    subgraph L5[Clinical Decision Layer]
-        DD[Doctor Dashboard]
+    subgraph Enterprise[Hospital Systems]
+        APPT[Appointment API]
+        EHR[EHR and Historical Records]
+        LIS[Lab Systems]
+        RIS[Radiology Systems]
     end
 
-    P --> RA
-    RA --> HFA
-    RA --> PCC
-    PCC --> AA
-    PCC --> LA
-    PCC --> MA
-    HFA -. A2A patient context .-> PCC
-    LA --> LC
-    MA --> IC
-    MA --> MCA
-    MCA --> MCP
-    MCA -. A2A comparison insights .-> IC
-    HFA --> DD
-    AA --> DD
-    LC --> DD
-    IC --> DD
+    P --> UI
+    UI --> APIGW
+    APIGW --> LB1
+    APIGW --> DD
+    LB1 --> RA
+    LB1 --> HFA
+    LB1 --> PCC
+    RA -. A2A session context .-> A2A
+    HFA -. A2A patient history .-> A2A
+    PCC -. A2A work routing .-> A2A
+    A2A --> LB2
+    LB2 --> LAB
+    LB2 --> IMG
+    LB2 --> COMP
+    COMP --> MCP
+    RA --> EHR
+    HFA --> EHR
+    PCC --> APPT
+    LAB --> LIS
+    IMG --> RIS
+    LAB --> DD
+    IMG --> DD
+    COMP --> DD
     DD --> TRA
 
-    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
-    classDef coord fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
-    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
-    classDef intel fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
-    classDef output fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
     classDef patient fill:#f3f4f6,stroke:#4b5563,stroke-width:1.5px,color:#111827;
+    classDef gateway fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef clinical fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef intel fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
 
     class P patient;
-    class RA,HFA intake;
-    class PCC,AA coord;
-    class LA,LC,MA,IC diag;
-    class MCA,MCP,TRA intel;
-    class DD output;
+    class UI,APIGW,LB1,LB2,A2A gateway;
+    class RA,HFA,PCC intake;
+    class LAB,IMG,COMP diag;
+    class DD,TRA clinical;
+    class MCP,APPT,EHR,LIS,RIS intel;
 ```
 
-Presentation assets for this architecture are available in [docs/diagrams/medsynapse-hdl.svg](docs/diagrams/medsynapse-hdl.svg) and [docs/diagrams/medsynapse-hdl.png](docs/diagrams/medsynapse-hdl.png).
+Presentation assets for this architecture are available in [docs/diagrams/medsynapse-tech-hla.svg](docs/diagrams/medsynapse-tech-hla.svg) and [docs/diagrams/medsynapse-tech-hla.png](docs/diagrams/medsynapse-tech-hla.png).
+
+## Low-Level Technical Architecture
+
+The low-level view shows how the runtime behaves inside MedSynapse. It makes the scaling pattern explicit: load balancers distribute traffic to agent pools, A2A carries state and work handoffs between domains, and MCP sits behind comparison and advanced reasoning agents instead of being invoked by everything.
+
+This is the view that engineering teams can use when deciding where to scale horizontally, where to isolate failures, and where to enforce responsibility boundaries.
+
+```mermaid
+flowchart LR
+    subgraph Entry[Request Entry]
+        UI[Portal and Dashboard UI]
+        APIGW[API Gateway]
+    end
+
+    subgraph IntakeDomain[Intake Domain]
+        LBI[Load Balancer]
+        RA1[Registration Agent 1]
+        RA2[Registration Agent 2]
+        HF1[History Fetch Agent 1]
+        HF2[History Fetch Agent 2]
+        PC1[Pre-Consultation Coordinator 1]
+        PC2[Pre-Consultation Coordinator 2]
+    end
+
+    subgraph A2ABus[A2A Fabric]
+        BUS[A2A Event and Context Bus]
+        SID[Patient Session ID Context]
+    end
+
+    subgraph DiagnosticDomain[Diagnostics Domain]
+        LBD[Load Balancer]
+        BT1[Blood Test Agent 1]
+        BT2[Blood Test Agent 2]
+        BC1[Biochemistry Agent 1]
+        BC2[Biochemistry Agent 2]
+        MRI1[MRI Agent 1]
+        MRI2[MRI Agent 2]
+        MC1[MRI Comparison Agent 1]
+        MC2[MRI Comparison Agent 2]
+        LC[Lab Coordinator]
+        IC[Imaging Coordinator]
+    end
+
+    subgraph Services[External Systems and Compute]
+        APPT[Appointment API]
+        EHR[EHR and Record Store]
+        LIS[Lab Information System]
+        RIS[Radiology System]
+        MCP[MCP Services]
+    end
+
+    subgraph ClinicalDomain[Clinical Domain]
+        DD[Doctor Dashboard Agent]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    UI --> APIGW
+    APIGW --> LBI
+    LBI --> RA1
+    LBI --> RA2
+    LBI --> HF1
+    LBI --> HF2
+    LBI --> PC1
+    LBI --> PC2
+    RA1 --> EHR
+    RA2 --> EHR
+    HF1 --> EHR
+    HF2 --> EHR
+    PC1 --> APPT
+    PC2 --> APPT
+    RA1 -. A2A .-> BUS
+    RA2 -. A2A .-> BUS
+    HF1 -. A2A .-> BUS
+    HF2 -. A2A .-> BUS
+    PC1 -. A2A .-> BUS
+    PC2 -. A2A .-> BUS
+    BUS --- SID
+    BUS --> LBD
+    LBD --> BT1
+    LBD --> BT2
+    LBD --> BC1
+    LBD --> BC2
+    LBD --> MRI1
+    LBD --> MRI2
+    LBD --> MC1
+    LBD --> MC2
+    BT1 --> LIS
+    BT2 --> LIS
+    BC1 --> LIS
+    BC2 --> LIS
+    MRI1 --> RIS
+    MRI2 --> RIS
+    MRI1 -. A2A scan context .-> MC1
+    MRI2 -. A2A scan context .-> MC2
+    MC1 --> MCP
+    MC2 --> MCP
+    BT1 --> LC
+    BT2 --> LC
+    BC1 --> LC
+    BC2 --> LC
+    MRI1 --> IC
+    MRI2 --> IC
+    MC1 --> IC
+    MC2 --> IC
+    LC --> DD
+    IC --> DD
+    HF1 --> DD
+    HF2 --> DD
+    DD --> TRA
+
+    classDef gateway fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef clinical fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef intel fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
+
+    class UI,APIGW,LBI,LBD,BUS,SID gateway;
+    class RA1,RA2,HF1,HF2,PC1,PC2 intake;
+    class BT1,BT2,BC1,BC2,MRI1,MRI2,MC1,MC2,LC,IC diag;
+    class DD,TRA clinical;
+    class APPT,EHR,LIS,RIS,MCP intel;
+```
+
+Presentation assets for this runtime architecture are available in [docs/diagrams/medsynapse-tech-lla.svg](docs/diagrams/medsynapse-tech-lla.svg) and [docs/diagrams/medsynapse-tech-lla.png](docs/diagrams/medsynapse-tech-lla.png).
 
 ## Agent and Sub-Agent Catalog
 

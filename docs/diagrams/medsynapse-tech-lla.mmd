@@ -1,0 +1,113 @@
+flowchart LR
+    subgraph Entry[Request Entry]
+        UI[Portal and Dashboard UI]
+        APIGW[API Gateway]
+    end
+
+    subgraph IntakeDomain[Intake Domain]
+        LBI[Load Balancer]
+        RA1[Registration Agent 1]
+        RA2[Registration Agent 2]
+        HF1[History Fetch Agent 1]
+        HF2[History Fetch Agent 2]
+        PC1[Pre-Consultation Coordinator 1]
+        PC2[Pre-Consultation Coordinator 2]
+    end
+
+    subgraph A2ABus[A2A Fabric]
+        BUS[A2A Event and Context Bus]
+        SID[Patient Session ID Context]
+    end
+
+    subgraph DiagnosticDomain[Diagnostics Domain]
+        LBD[Load Balancer]
+        BT1[Blood Test Agent 1]
+        BT2[Blood Test Agent 2]
+        BC1[Biochemistry Agent 1]
+        BC2[Biochemistry Agent 2]
+        MRI1[MRI Agent 1]
+        MRI2[MRI Agent 2]
+        MC1[MRI Comparison Agent 1]
+        MC2[MRI Comparison Agent 2]
+        LC[Lab Coordinator]
+        IC[Imaging Coordinator]
+    end
+
+    subgraph Services[External Systems and Compute]
+        APPT[Appointment API]
+        EHR[EHR and Record Store]
+        LIS[Lab Information System]
+        RIS[Radiology System]
+        MCP[MCP Services]
+    end
+
+    subgraph ClinicalDomain[Clinical Domain]
+        DD[Doctor Dashboard Agent]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    UI --> APIGW
+    APIGW --> LBI
+    LBI --> RA1
+    LBI --> RA2
+    LBI --> HF1
+    LBI --> HF2
+    LBI --> PC1
+    LBI --> PC2
+    RA1 --> EHR
+    RA2 --> EHR
+    HF1 --> EHR
+    HF2 --> EHR
+    PC1 --> APPT
+    PC2 --> APPT
+    RA1 -. A2A .-> BUS
+    RA2 -. A2A .-> BUS
+    HF1 -. A2A .-> BUS
+    HF2 -. A2A .-> BUS
+    PC1 -. A2A .-> BUS
+    PC2 -. A2A .-> BUS
+    BUS --- SID
+    BUS --> LBD
+    LBD --> BT1
+    LBD --> BT2
+    LBD --> BC1
+    LBD --> BC2
+    LBD --> MRI1
+    LBD --> MRI2
+    LBD --> MC1
+    LBD --> MC2
+    BT1 --> LIS
+    BT2 --> LIS
+    BC1 --> LIS
+    BC2 --> LIS
+    MRI1 --> RIS
+    MRI2 --> RIS
+    MRI1 -. A2A scan context .-> MC1
+    MRI2 -. A2A scan context .-> MC2
+    MC1 --> MCP
+    MC2 --> MCP
+    BT1 --> LC
+    BT2 --> LC
+    BC1 --> LC
+    BC2 --> LC
+    MRI1 --> IC
+    MRI2 --> IC
+    MC1 --> IC
+    MC2 --> IC
+    LC --> DD
+    IC --> DD
+    HF1 --> DD
+    HF2 --> DD
+    DD --> TRA
+
+    classDef gateway fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef clinical fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef intel fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
+
+    class UI,APIGW,LBI,LBD,BUS,SID gateway;
+    class RA1,RA2,HF1,HF2,PC1,PC2 intake;
+    class BT1,BT2,BC1,BC2,MRI1,MRI2,MC1,MC2,LC,IC diag;
+    class DD,TRA clinical;
+    class APPT,EHR,LIS,RIS,MCP intel;
