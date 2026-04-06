@@ -1,0 +1,71 @@
+flowchart TB
+    P[Patient Session]
+
+    subgraph Intake[Front Desk and Intake Department]
+        RA[Registration Agent]
+        SCS[Session Context Sub-Agent]
+        HFA[History Fetch Agent]
+        HNS[History Normalization Sub-Agent]
+    end
+
+    subgraph Coordination[Pre-Consultation and Scheduling Department]
+        PCC[Pre-Consultation Coordinator]
+        AAS[Appointment API Sub-Agent]
+    end
+
+    subgraph Lab[Lab and Pathology Department]
+        LC[Lab Coordinator]
+        BTA[Blood Test Sub-Agent]
+        BCA[Biochemistry Sub-Agent]
+    end
+
+    subgraph Radiology[Radiology Department]
+        MRI[MRI Agent]
+        MAS[MRI Acquisition Sub-Agent]
+        MCA[MRI Comparison Agent]
+        ICS[Imaging Summary Sub-Agent]
+        IC[Imaging Coordinator]
+        MCP[MCP]
+    end
+
+    subgraph Clinical[Doctor and Decision Support Department]
+        DDA[Doctor Dashboard Agent]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    P --> RA
+    RA --> SCS
+    RA --> HFA
+    HFA --> HNS
+    SCS --> PCC
+    HNS --> PCC
+    PCC --> AAS
+    PCC --> LC
+    PCC --> MRI
+    LC --> BTA
+    LC --> BCA
+    MRI --> MAS
+    MRI --> MCA
+    MCA --> MCP
+    MCA --> ICS
+    ICS --> IC
+    BTA --> DDA
+    BCA --> DDA
+    IC --> DDA
+    HFA --> DDA
+    AAS --> DDA
+    DDA --> TRA
+
+    classDef patient fill:#f3f4f6,stroke:#4b5563,stroke-width:1.5px,color:#111827;
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef coord fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef lab fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef radiology fill:#f9e0e0,stroke:#b83232,stroke-width:1.5px,color:#4a1515;
+    classDef clinical fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+
+    class P patient;
+    class RA,SCS,HFA,HNS intake;
+    class PCC,AAS coord;
+    class LC,BTA,BCA lab;
+    class MRI,MAS,MCA,ICS,IC,MCP radiology;
+    class DDA,TRA clinical;

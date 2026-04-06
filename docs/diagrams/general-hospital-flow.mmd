@@ -1,0 +1,26 @@
+flowchart LR
+    A[Patient Arrives at Hospital] --> B[Registration and Identity Verification]
+    B --> C[Basic History and Symptoms Collected]
+    C --> D[Initial Doctor Meeting]
+    D --> E{More Information Needed?}
+    E -->|Yes| F[Lab Tests Ordered]
+    E -->|Yes| G[Imaging Ordered: MRI or Scan]
+    E -->|No| J[Diagnosis and Treatment Plan]
+    F --> H[Lab Results Returned]
+    G --> I[Imaging Results Returned]
+    H --> K[Doctor Reviews Results with History]
+    I --> K
+    K --> J
+    J --> L[Prescription, Admission, or Follow-Up]
+
+    classDef patient fill:#f3f4f6,stroke:#4b5563,stroke-width:1.5px,color:#111827;
+    classDef admin fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+    classDef consult fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef diagnostics fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef decision fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+
+    class A patient;
+    class B,C admin;
+    class D,E,K consult;
+    class F,G,H,I diagnostics;
+    class J,L decision;

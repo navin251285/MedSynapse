@@ -18,37 +18,62 @@ The core problem is simple and structural:
 
 > Hospitals lack a scalable, intelligent system to coordinate patient care across departments, leverage historical data, and automate workflow without bottlenecks.
 
+## How Hospital Care Typically Happens
+
+Before talking about MedSynapse technically, it helps to describe the hospital journey the way most patients experience it in real life.
+
+The patient arrives, waits at the front desk, gets registered, and then is routed into a sequence of departments. History may be collected from memory or searched manually. The doctor performs an initial consultation, decides what additional data is needed, and then sends the patient for lab tests, imaging, or both. Once those results come back, the doctor reassembles the case and decides on treatment.
+
+In most hospitals, this flow is operationally linear even when the medical work could be parallel. That is the gap MedSynapse is designed to close.
+
+```mermaid
+flowchart LR
+    A[Patient Arrives at Hospital] --> B[Registration and Identity Verification]
+    B --> C[Basic History and Symptoms Collected]
+    C --> D[Initial Doctor Meeting]
+    D --> E{More Information Needed?}
+    E -->|Yes| F[Lab Tests Ordered]
+    E -->|Yes| G[Imaging Ordered: MRI or Scan]
+    E -->|No| J[Diagnosis and Treatment Plan]
+    F --> H[Lab Results Returned]
+    G --> I[Imaging Results Returned]
+    H --> K[Doctor Reviews Results with History]
+    I --> K
+    K --> J
+    J --> L[Prescription, Admission, or Follow-Up]
+```
+
+Presentation assets for this hospital journey view are available in [docs/diagrams/general-hospital-flow.svg](docs/diagrams/general-hospital-flow.svg) and [docs/diagrams/general-hospital-flow.png](docs/diagrams/general-hospital-flow.png).
+
+### General Patient Flow
+
+1. The patient arrives and completes registration.
+2. Basic history, symptoms, and prior records are collected.
+3. The doctor performs the first consultation.
+4. The doctor orders diagnostics such as blood tests or MRI.
+5. The patient moves between departments while results are processed.
+6. The doctor manually consolidates history, labs, and imaging.
+7. A treatment, prescription, or follow-up plan is created.
+
 ## MedSynapse in One Sentence
 
 MedSynapse is a hospital workflow intelligence layer where specialized AI agents manage parallel tasks, share context through A2A communication, and use MCP services for deep historical comparison and analytical reasoning.
 
-## Phase 1 Patient Journey
+## How MedSynapse Implements This Technically
 
-Phase 1 focuses on the most operationally painful part of the hospital experience: the journey from registration to doctor consultation.
+MedSynapse keeps the same real-world hospital journey, but it changes how coordination happens under the surface.
 
-### 1. Patient Registration
+Instead of waiting for one department to finish before the next begins, MedSynapse creates a patient session at intake and lets specialized agents move work forward in parallel. Intake agents capture the visit. History agents pull prior context. Coordination agents route the case to lab and imaging. Diagnostic agents produce structured outputs. Analytical agents use MCP when longitudinal or compute-heavy reasoning is required. The doctor then receives one integrated view instead of scattered departmental fragments.
 
-The patient enters the system through a Registration Agent that captures demographics, symptoms, identifiers, and visit metadata. The agent immediately creates a Patient Session ID that becomes the traceable context key for every downstream interaction.
+### Technical Flow in Phase 1
 
-### 2. History Fetch
-
-As soon as registration is complete, a History Fetch Agent starts retrieving prior consultations, earlier lab records, historical imaging, and known clinical patterns associated with the patient. This happens in parallel with the next operational steps rather than waiting for someone to request it manually.
-
-### 3. Pre-Consultation Coordination
-
-A Pre-Consultation Coordinator evaluates the case context and determines what should happen before the doctor sees the patient. That may include booking a slot through the Appointment API, alerting the lab pipeline, or preparing imaging coordination for suspected conditions.
-
-### 4. Lab Tests and Imaging
-
-Lab Agents and MRI Agents operate as specialized workers. A Lab Coordinator aggregates pathology outputs, while an Imaging Coordinator manages radiology execution and routes historical scan comparisons to MCP through the MRI Comparison Agent.
-
-### 5. Doctor Consultation
-
-Instead of receiving fragmented updates, the doctor sees a unified dashboard that combines patient history, pre-consultation outcomes, new lab findings, imaging observations, and pending items.
-
-### 6. Treatment Recommendation
-
-Finally, a Treatment Recommendation Agent synthesizes structured findings and supports the physician with a recommendation layer that is context-aware, traceable, and grounded in the complete patient session.
+1. A Registration Agent creates the patient session and intake payload.
+2. A History Fetch Agent retrieves prior visits, imaging, and lab records.
+3. A Pre-Consultation Coordinator dispatches scheduling, lab, and radiology work.
+4. Lab and imaging agents process diagnostics in parallel.
+5. An MRI Comparison Agent invokes MCP for historical comparison.
+6. Coordinators summarize departmental outputs into the Doctor Dashboard.
+7. A Treatment Recommendation Agent supports the final care decision.
 
 ## Visual High-Level Design
 
@@ -121,6 +146,98 @@ flowchart TB
 
 Presentation assets for this architecture are available in [docs/diagrams/medsynapse-hdl.svg](docs/diagrams/medsynapse-hdl.svg) and [docs/diagrams/medsynapse-hdl.png](docs/diagrams/medsynapse-hdl.png).
 
+## Agent and Sub-Agent Catalog
+
+MedSynapse is easier to understand when the system is described as a set of main agents and the smaller role-specific sub-agents that support them.
+
+### Main Agents
+
+- Registration Agent: creates the patient session, captures demographics, symptoms, and visit metadata.
+- History Fetch Agent: retrieves prior consultations, diagnostics, imaging, and other historical patient context.
+- Pre-Consultation Coordinator: decides what should happen before the doctor sees the patient and routes work to the right departments.
+- Lab Coordinator: consolidates pathology and lab outputs into a structured clinical summary.
+- MRI Agent: manages imaging workflow execution and scan status.
+- Imaging Coordinator: combines imaging workflow outputs and prepares them for clinician review.
+- MRI Comparison Agent: compares new imaging against historical records using MCP.
+- Doctor Dashboard Agent: presents a unified patient view for clinical decision-making.
+- Treatment Recommendation Agent: synthesizes findings into structured treatment support.
+
+### Sub-Agents
+
+- Appointment API Sub-Agent: handles scheduling and availability requests.
+- Blood Test Sub-Agent: processes hematology and standard blood investigations.
+- Biochemistry Sub-Agent: processes chemistry and metabolic lab panels.
+- MRI Acquisition Sub-Agent: tracks scan execution and acquisition state.
+- Imaging Summary Sub-Agent: structures imaging findings for dashboard consumption.
+- History Normalization Sub-Agent: standardizes retrieved patient records into a reusable format.
+- Session Context Sub-Agent: maintains patient session identity across agent handoffs.
+
+## Department-Wise Agent Map
+
+The following diagram groups every major agent and sub-agent by department so the hospital organization and the technical organization are easy to compare.
+
+```mermaid
+flowchart TB
+    P[Patient Session]
+
+    subgraph Intake[Front Desk and Intake Department]
+        RA[Registration Agent]
+        SCS[Session Context Sub-Agent]
+        HFA[History Fetch Agent]
+        HNS[History Normalization Sub-Agent]
+    end
+
+    subgraph Coordination[Pre-Consultation and Scheduling Department]
+        PCC[Pre-Consultation Coordinator]
+        AAS[Appointment API Sub-Agent]
+    end
+
+    subgraph Lab[Lab and Pathology Department]
+        LC[Lab Coordinator]
+        BTA[Blood Test Sub-Agent]
+        BCA[Biochemistry Sub-Agent]
+    end
+
+    subgraph Radiology[Radiology Department]
+        MRI[MRI Agent]
+        MAS[MRI Acquisition Sub-Agent]
+        MCA[MRI Comparison Agent]
+        ICS[Imaging Summary Sub-Agent]
+        IC[Imaging Coordinator]
+        MCP[MCP]
+    end
+
+    subgraph Clinical[Doctor and Decision Support Department]
+        DDA[Doctor Dashboard Agent]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    P --> RA
+    RA --> SCS
+    RA --> HFA
+    HFA --> HNS
+    SCS --> PCC
+    HNS --> PCC
+    PCC --> AAS
+    PCC --> LC
+    PCC --> MRI
+    LC --> BTA
+    LC --> BCA
+    MRI --> MAS
+    MRI --> MCA
+    MCA --> MCP
+    MCA --> ICS
+    ICS --> IC
+    BTA --> DDA
+    BCA --> DDA
+    IC --> DDA
+    HFA --> DDA
+    AAS --> DDA
+    DDA --> TRA
+```
+
+Presentation assets for this department map are available in [docs/diagrams/department-agent-map.svg](docs/diagrams/department-agent-map.svg) and [docs/diagrams/department-agent-map.png](docs/diagrams/department-agent-map.png).
+
 ## A2A Communication Fabric
 
 The next view isolates the A2A interaction model. Instead of emphasizing patient flow, it emphasizes how agents exchange context, status, and structured findings across the system without collapsing responsibilities into a single central worker.
@@ -180,6 +297,34 @@ flowchart LR
     class DD,TRA clinical;
     class AA,MCP service;
 ```
+
+## Phase 1 Patient Journey
+
+Phase 1 focuses on the most operationally painful part of the hospital experience: the journey from registration to doctor consultation.
+
+### 1. Patient Registration
+
+The patient enters the system through a Registration Agent that captures demographics, symptoms, identifiers, and visit metadata. The agent immediately creates a Patient Session ID that becomes the traceable context key for every downstream interaction.
+
+### 2. History Fetch
+
+As soon as registration is complete, a History Fetch Agent starts retrieving prior consultations, earlier lab records, historical imaging, and known clinical patterns associated with the patient. This happens in parallel with the next operational steps rather than waiting for someone to request it manually.
+
+### 3. Pre-Consultation Coordination
+
+A Pre-Consultation Coordinator evaluates the case context and determines what should happen before the doctor sees the patient. That may include booking a slot through the Appointment API, alerting the lab pipeline, or preparing imaging coordination for suspected conditions.
+
+### 4. Lab Tests and Imaging
+
+Lab Agents and MRI Agents operate as specialized workers. A Lab Coordinator aggregates pathology outputs, while an Imaging Coordinator manages radiology execution and routes historical scan comparisons to MCP through the MRI Comparison Agent.
+
+### 5. Doctor Consultation
+
+Instead of receiving fragmented updates, the doctor sees a unified dashboard that combines patient history, pre-consultation outcomes, new lab findings, imaging observations, and pending items.
+
+### 6. Treatment Recommendation
+
+Finally, a Treatment Recommendation Agent synthesizes structured findings and supports the physician with a recommendation layer that is context-aware, traceable, and grounded in the complete patient session.
 
 ## High-Level Flow
 
@@ -278,7 +423,7 @@ sequenceDiagram
     IC-->>DD: A2A radiology summary for doctor review
 ```
 
-## Component-Level Architecture
+## Department Component Views
 
 ### Patient Intake Component
 
