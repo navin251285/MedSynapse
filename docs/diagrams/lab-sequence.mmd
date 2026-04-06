@@ -1,0 +1,16 @@
+sequenceDiagram
+    autonumber
+    participant PCC as Pre-Consultation Coordinator
+    participant BTA as Blood Test Agent
+    participant BCA as Biochemistry Agent
+    participant LC as Lab Coordinator
+    participant DD as Doctor Dashboard
+
+    PCC-->>BTA: A2A blood panel order
+    PCC-->>BCA: A2A biochemistry order
+    BTA->>BTA: Process hematology workflow
+    BCA->>BCA: Process chemistry workflow
+    BTA-->>LC: A2A blood test result payload
+    BCA-->>LC: A2A biochemistry result payload
+    LC->>LC: Aggregate, validate, and structure findings
+    LC-->>DD: A2A lab summary for consultation

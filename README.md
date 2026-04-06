@@ -119,6 +119,68 @@ flowchart TB
     class DD output;
 ```
 
+Presentation assets for this architecture are available in [docs/diagrams/medsynapse-hdl.svg](docs/diagrams/medsynapse-hdl.svg) and [docs/diagrams/medsynapse-hdl.png](docs/diagrams/medsynapse-hdl.png).
+
+## A2A Communication Fabric
+
+The next view isolates the A2A interaction model. Instead of emphasizing patient flow, it emphasizes how agents exchange context, status, and structured findings across the system without collapsing responsibilities into a single central worker.
+
+Presentation assets for this communication view are available in [docs/diagrams/medsynapse-a2a.svg](docs/diagrams/medsynapse-a2a.svg) and [docs/diagrams/medsynapse-a2a.png](docs/diagrams/medsynapse-a2a.png).
+
+```mermaid
+flowchart LR
+    subgraph Intake[Intake Agents]
+        RA[Registration Agent]
+        HFA[History Fetch Agent]
+        PCC[Pre-Consultation Coordinator]
+    end
+
+    subgraph Diagnostics[Diagnostic Agents]
+        LA[Lab Agents]
+        LC[Lab Coordinator]
+        MA[MRI Agent]
+        MCA[MRI Comparison Agent]
+        IC[Imaging Coordinator]
+    end
+
+    subgraph Clinical[Clinical Decision Layer]
+        DD[Doctor Dashboard]
+        TRA[Treatment Recommendation Agent]
+    end
+
+    subgraph Services[External and Compute Services]
+        AA[Appointment API]
+        MCP[MCP]
+    end
+
+    RA -. A2A patient session .-> HFA
+    RA -. A2A intake context .-> PCC
+    HFA -. A2A patient history .-> PCC
+    PCC -. A2A scheduling request .-> AA
+    PCC -. A2A lab order .-> LA
+    PCC -. A2A imaging order .-> MA
+    LA -. A2A diagnostic payload .-> LC
+    MA -. A2A scan metadata .-> IC
+    MA -. A2A comparison request .-> MCA
+    MCA -. MCP invocation .-> MCP
+    MCA -. A2A comparison insights .-> IC
+    HFA -. A2A history summary .-> DD
+    LC -. A2A lab summary .-> DD
+    IC -. A2A imaging summary .-> DD
+    AA -. A2A appointment status .-> DD
+    DD -. A2A clinical package .-> TRA
+
+    classDef intake fill:#d9f2e6,stroke:#1f6f4a,stroke-width:1.5px,color:#0d2f21;
+    classDef diag fill:#fff1d6,stroke:#b7791f,stroke-width:1.5px,color:#4a2b00;
+    classDef clinical fill:#ece7ff,stroke:#5b43b5,stroke-width:1.5px,color:#24154a;
+    classDef service fill:#e7eefb,stroke:#2b5fb3,stroke-width:1.5px,color:#12294d;
+
+    class RA,HFA,PCC intake;
+    class LA,LC,MA,MCA,IC diag;
+    class DD,TRA clinical;
+    class AA,MCP service;
+```
+
 ## High-Level Flow
 
 ```mermaid
@@ -143,6 +205,78 @@ flowchart TD
 ```
 
 This Phase 1 flow is deliberately modular. Each agent handles a bounded responsibility, and the patient session moves forward through coordinated, asynchronous updates rather than human-driven polling.
+
+## Operational Sequence Views
+
+The following sequence diagrams show how MedSynapse behaves in time, not just as a static component map.
+
+### Registration and Intake Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Patient
+    participant RA as Registration Agent
+    participant HFA as History Fetch Agent
+    participant PCC as Pre-Consultation Coordinator
+    participant AA as Appointment API
+    participant DD as Doctor Dashboard
+
+    Patient->>RA: Submit registration details and symptoms
+    RA->>RA: Create Patient Session ID
+    RA-->>HFA: A2A patient identity and session context
+    RA-->>PCC: A2A intake packet
+    HFA->>HFA: Retrieve prior visits, labs, and imaging references
+    HFA-->>PCC: A2A summarized patient history
+    PCC->>AA: Request appointment slot and workflow reservation
+    AA-->>PCC: Return slot and department availability
+    PCC-->>DD: Push intake status and pre-consult context
+    HFA-->>DD: Push historical record summary
+```
+
+### Lab Coordination Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PCC as Pre-Consultation Coordinator
+    participant BTA as Blood Test Agent
+    participant BCA as Biochemistry Agent
+    participant LC as Lab Coordinator
+    participant DD as Doctor Dashboard
+
+    PCC-->>BTA: A2A blood panel order
+    PCC-->>BCA: A2A biochemistry order
+    BTA->>BTA: Process hematology workflow
+    BCA->>BCA: Process chemistry workflow
+    BTA-->>LC: A2A blood test result payload
+    BCA-->>LC: A2A biochemistry result payload
+    LC->>LC: Aggregate, validate, and structure findings
+    LC-->>DD: A2A lab summary for consultation
+```
+
+### Radiology and Historical Comparison Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PCC as Pre-Consultation Coordinator
+    participant MRI as MRI Agent
+    participant MCA as MRI Comparison Agent
+    participant MCP as MCP
+    participant IC as Imaging Coordinator
+    participant DD as Doctor Dashboard
+
+    PCC-->>MRI: A2A imaging request
+    MRI->>MRI: Capture imaging workflow status
+    MRI-->>MCA: A2A comparison request with current scan metadata
+    MCA->>MCP: Request historical scan comparison
+    MCP-->>MCA: Return longitudinal comparison insights
+    MRI-->>IC: A2A acquisition status and scan reference
+    MCA-->>IC: A2A comparison findings
+    IC->>IC: Merge current and historical imaging context
+    IC-->>DD: A2A radiology summary for doctor review
+```
 
 ## Component-Level Architecture
 

@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    actor Patient
+    participant RA as Registration Agent
+    participant HFA as History Fetch Agent
+    participant PCC as Pre-Consultation Coordinator
+    participant AA as Appointment API
+    participant DD as Doctor Dashboard
+
+    Patient->>RA: Submit registration details and symptoms
+    RA->>RA: Create Patient Session ID
+    RA-->>HFA: A2A patient identity and session context
+    RA-->>PCC: A2A intake packet
+    HFA->>HFA: Retrieve prior visits, labs, and imaging references
+    HFA-->>PCC: A2A summarized patient history
+    PCC->>AA: Request appointment slot and workflow reservation
+    AA-->>PCC: Return slot and department availability
+    PCC-->>DD: Push intake status and pre-consult context
+    HFA-->>DD: Push historical record summary

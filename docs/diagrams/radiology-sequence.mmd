@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    participant PCC as Pre-Consultation Coordinator
+    participant MRI as MRI Agent
+    participant MCA as MRI Comparison Agent
+    participant MCP as MCP
+    participant IC as Imaging Coordinator
+    participant DD as Doctor Dashboard
+
+    PCC-->>MRI: A2A imaging request
+    MRI->>MRI: Capture imaging workflow status
+    MRI-->>MCA: A2A comparison request with current scan metadata
+    MCA->>MCP: Request historical scan comparison
+    MCP-->>MCA: Return longitudinal comparison insights
+    MRI-->>IC: A2A acquisition status and scan reference
+    MCA-->>IC: A2A comparison findings
+    IC->>IC: Merge current and historical imaging context
+    IC-->>DD: A2A radiology summary for doctor review
